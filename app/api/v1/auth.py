@@ -9,17 +9,23 @@ from app.core.security import hash_password, verify_password, create_access_toke
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+@router.get("/check-username")
+def check_username(username: str, db: Session = Depends(get_db)):
+    exists = db.query(User).filter(User.username == username).first() is not None
+    return {"available": not exists}
+
+
 @router.post("/register", response_model=UserResponse, status_code=201)
 def register(body: UserCreate, db: Session = Depends(get_db)):
-    if db.query(User).filter(User.email == body.email).first():
-        raise HTTPException(status_code=400, detail="이미 사용 중인 이메일입니다.")
+    if db.query(User).filter(User.username == body.username).first():
+        raise HTTPException(status_code=400, detail="이미 사용 중인 아이디입니다.")
 
     user = User(
-        email=body.email,
+        username=body.username,
         nickname=body.nickname,
         hashed_password=hash_password(body.password),
         gender=body.gender,
-        age=body.age,
+        birth_date=body.birth_date,
         bio=body.bio,
     )
     db.add(user)
@@ -30,9 +36,9 @@ def register(body: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=TokenResponse)
 def login(body: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == body.email).first()
+    user = db.query(User).filter(User.username == body.username).first()
     if not user or not verify_password(body.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="이메일 또는 비밀번호가 올바르지 않습니다.")
+        raise HTTPException(status_code=401, detail="아이디 또는 비밀번호가 올바르지 않습니다.")
 
     token = create_access_token({"sub": str(user.id)})
     return {"access_token": token}
