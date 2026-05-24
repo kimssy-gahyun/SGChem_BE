@@ -1,3 +1,4 @@
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.db.database import get_db
@@ -7,6 +8,8 @@ from app.schemas.user import UserCreate, UserResponse
 from app.core.security import hash_password, verify_password, create_access_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+MIN_AGE = 19
 
 
 @router.get("/check-username")
@@ -19,6 +22,14 @@ def check_username(username: str, db: Session = Depends(get_db)):
 def register(body: UserCreate, db: Session = Depends(get_db)):
     if db.query(User).filter(User.username == body.username).first():
         raise HTTPException(status_code=400, detail="이미 사용 중인 아이디입니다.")
+
+    if body.birth_date:
+        today = date.today()
+        age = today.year - body.birth_date.year - (
+            (today.month, today.day) < (body.birth_date.month, body.birth_date.day)
+        )
+        if age < MIN_AGE:
+            raise HTTPException(status_code=400, detail=f"만 {MIN_AGE}세 이상만 가입할 수 있습니다.")
 
     user = User(
         username=body.username,
